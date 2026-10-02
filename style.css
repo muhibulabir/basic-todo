@@ -173,6 +173,10 @@ form button[type="submit"] {
   flex: 1 1 100%;
 }
 
+#sort-select {
+  flex: 1 1 100%;
+}
+
 .filters {
   display: flex;
   gap: 4px;
@@ -181,6 +185,21 @@ form button[type="submit"] {
   border-radius: 10px;
   padding: 3px;
   flex: 1 1 100%;
+}
+
+#clear-completed {
+  flex: 1 1 100%;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--ink-muted);
+  font-size: 0.82rem;
+}
+
+#clear-completed:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .filter-btn {

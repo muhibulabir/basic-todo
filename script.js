@@ -8,7 +8,9 @@
   const dueDateInput = document.getElementById('due-date');
 
   const searchInput = document.getElementById('search');
+  const sortSelect = document.getElementById('sort-select');
   const filterButtons = Array.from(document.querySelectorAll('.filter-btn'));
+  const clearCompletedButton = document.getElementById('clear-completed');
 
   const list = document.getElementById('list');
   const empty = document.getElementById('empty');
@@ -20,6 +22,7 @@
   /* ---------------- State ---------------- */
   let tasks = [];
   let currentFilter = 'all'; // all | active | completed
+  let currentSort = 'newest';
   let searchQuery = '';
   let editingId = null;
   let editDraft = null; // live { text, priority, dueDate } for the task being edited
@@ -60,8 +63,14 @@
 
   function todayISO() {
     const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    return d.toISOString().slice(0, 10);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return year + '-' + month + '-' + day;
+  }
+
+  function setDateMinimum(dateInput) {
+    dateInput.min = todayISO();
   }
 
   function formatDue(iso) {
@@ -131,7 +140,16 @@
   /* ---------------- Task operations ---------------- */
   function addTask(text, priority, dueDate) {
     const trimmed = text.trim();
-    if (!trimmed) return false;
+    if (!trimmed) {
+      showToast('Add a task first');
+      return false;
+    }
+    if (!dueDate || dueDate < todayISO()) {
+      dueDateInput.setCustomValidity('Choose today or a future date.');
+      dueDateInput.reportValidity();
+      return false;
+    }
+    dueDateInput.setCustomValidity('');
 
     tasks.unshift({
       id: generateId(),
@@ -166,6 +184,20 @@
     saveTasks();
     render();
     showToast(task.done ? 'Task completed' : 'Task marked active');
+  }
+
+  function clearCompleted() {
+    const completedCount = tasks.filter((task) => task.done).length;
+    if (!completedCount) return;
+
+    if (editingId && tasks.some((task) => task.id === editingId && task.done)) {
+      editingId = null;
+      editDraft = null;
+    }
+    tasks = tasks.filter((task) => !task.done);
+    saveTasks();
+    render();
+    showToast('Completed tasks cleared');
   }
 
   function startEdit(id) {
@@ -223,7 +255,7 @@
 
   /* ---------------- Filtering / search ---------------- */
   function getVisibleTasks() {
-    return tasks.filter((task) => {
+    const visibleTasks = tasks.filter((task) => {
       const matchesFilter =
         currentFilter === 'all' ||
         (currentFilter === 'active' && !task.done) ||
@@ -233,6 +265,24 @@
         searchQuery === '' || task.text.toLowerCase().includes(searchQuery.toLowerCase());
 
       return matchesFilter && matchesSearch;
+    });
+
+    return visibleTasks.sort((a, b) => {
+      if (currentSort === 'due-date') {
+        if (!a.dueDate && !b.dueDate) return b.createdAt - a.createdAt;
+        if (!a.dueDate) return 1;
+        if (!b.dueDate) return -1;
+        return a.dueDate.localeCompare(b.dueDate) || b.createdAt - a.createdAt;
+      }
+
+      if (currentSort === 'priority') {
+        const priorityRank = { low: 1, medium: 2, high: 3 };
+        const aRank = priorityRank[a.priority || 'medium'] || 0;
+        const bRank = priorityRank[b.priority || 'medium'] || 0;
+        return bRank - aRank || b.createdAt - a.createdAt;
+      }
+
+      return b.createdAt - a.createdAt;
     });
   }
 
@@ -339,8 +389,13 @@
     const dueInput = document.createElement('input');
     dueInput.type = 'date';
     dueInput.value = draft.dueDate;
+    if (!draft.dueDate || draft.dueDate >= todayISO()) setDateMinimum(dueInput);
     dueInput.setAttribute('aria-label', 'Edit due date');
-    dueInput.addEventListener('change', () => { draft.dueDate = dueInput.value; });
+    dueInput.addEventListener('change', () => {
+      draft.dueDate = dueInput.value;
+      const changedToPast = dueInput.value && dueInput.value < todayISO() && dueInput.value !== task.dueDate;
+      dueInput.setCustomValidity(changedToPast ? 'Choose today or a future date.' : '');
+    });
 
     const actions = document.createElement('div');
     actions.className = 'edit-actions';
@@ -360,6 +415,12 @@
 
     editForm.addEventListener('submit', (e) => {
       e.preventDefault();
+      const changedToPast = dueInput.value && dueInput.value < todayISO() && dueInput.value !== task.dueDate;
+      if (changedToPast) {
+        dueInput.setCustomValidity('Choose today or a future date.');
+        dueInput.reportValidity();
+        return;
+      }
       const ok = saveEdit(task.id, textInput.value, prioritySel.value, dueInput.value);
       if (!ok) textInput.focus();
     });
@@ -394,6 +455,20 @@
     }
 
     const remaining = tasks.filter((t) => !t.done).length;
+    const completedCount = tasks.length - remaining;
+    filterButtons.forEach((btn) => {
+      const label = btn.dataset.filter.charAt(0).toUpperCase() + btn.dataset.filter.slice(1);
+      const taskCount = btn.dataset.filter === 'all'
+        ? tasks.length
+        : btn.dataset.filter === 'active'
+        ? remaining
+        : completedCount;
+      btn.textContent = label + ' (' + taskCount + ')';
+    });
+    clearCompletedButton.disabled = completedCount === 0;
+    clearCompletedButton.textContent = completedCount
+      ? 'Clear completed (' + completedCount + ')'
+      : 'Clear completed';
     count.textContent = tasks.length ? remaining + ' of ' + tasks.length + ' left' : '';
   }
 
@@ -404,12 +479,20 @@
     if (added) {
       form.reset();
       prioritySelect.value = 'medium';
+      dueDateInput.value = todayISO();
       input.focus();
     }
   });
 
+  dueDateInput.addEventListener('input', () => dueDateInput.setCustomValidity(''));
+
   searchInput.addEventListener('input', (e) => {
     searchQuery = e.target.value;
+    render();
+  });
+
+  sortSelect.addEventListener('change', () => {
+    currentSort = sortSelect.value;
     render();
   });
 
@@ -417,9 +500,13 @@
     btn.addEventListener('click', () => setFilter(btn.dataset.filter));
   });
 
+  clearCompletedButton.addEventListener('click', clearCompleted);
+
   themeToggle.addEventListener('click', toggleTheme);
 
   /* ---------------- Init ---------------- */
+  setDateMinimum(dueDateInput);
+  dueDateInput.value = todayISO();
   initTheme();
   render();
 })();
