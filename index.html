@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>To-Do</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <div class="app">
+
+    <header class="header">
+      <h1>To-Do</h1>
+      <button
+        type="button"
+        id="theme-toggle"
+        aria-label="Switch to dark mode"
+        aria-pressed="false"
+        title="Toggle dark / light mode"
+      >🌙</button>
+    </header>
+
+    <!-- Add task -->
+    <form id="form">
+      <label for="input" class="visually-hidden">New task</label>
+      <input type="text" id="input" placeholder="Add a task…" maxlength="200" autofocus />
+
+      <label for="priority" class="visually-hidden">Priority</label>
+      <select id="priority" aria-label="Priority">
+        <option value="low">Low</option>
+        <option value="medium" selected>Medium</option>
+        <option value="high">High</option>
+      </select>
+
+      <label for="due-date" class="visually-hidden">Due date</label>
+      <input type="date" id="due-date" aria-label="Due date (optional)" />
+
+      <button type="submit">Add</button>
+    </form>
+
+    <!-- Search + filters -->
+    <div class="controls">
+      <label for="search" class="visually-hidden">Search tasks</label>
+      <input type="search" id="search" placeholder="Search tasks…" />
+
+      <div class="filters" role="group" aria-label="Filter tasks by status">
+        <button type="button" class="filter-btn is-active" data-filter="all" aria-pressed="true">All</button>
+        <button type="button" class="filter-btn" data-filter="active" aria-pressed="false">Active</button>
+        <button type="button" class="filter-btn" data-filter="completed" aria-pressed="false">Completed</button>
+      </div>
+    </div>
+
+    <ul id="list" aria-label="Tasks"></ul>
+    <p class="empty" id="empty" hidden>No tasks yet.</p>
+    <p class="count" id="count" aria-live="polite"></p>
+  </div>
+
+  <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+  <script src="script.js"></script>
+</body>
+</html>
